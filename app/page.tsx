@@ -1,65 +1,122 @@
-import Image from "next/image";
+"use client"
+
+import { useEffect, useState } from 'react'
+import { addDoc, collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { db } from './../app/firebase/firebase.config';
+
+interface Item {
+  id: string;
+  nombre: string;
+  correo: string;
+  fecha: string;
+}
 
 export default function Home() {
+  const [nombre, setNombre] = useState('');
+  const [correo, setCorreo] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [items, setItems] = useState<Item[]>([]);
+
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const handleAdd = async () => {
+    if (!nombre || !correo || !fecha) return;
+    await addDoc(collection(db, 'items'), { nombre, correo, fecha })
+    setNombre('');
+    setCorreo('');
+    setFecha('');
+    fetchItems();
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!id) return;
+    await deleteDoc(doc(db, 'items', id));
+    fetchItems();
+  }
+
+  const handleEdit = async (item: Item) => {
+    const nuevoNombre = prompt("Nuevo Nombre", item.nombre);
+    const nuevoCorreo = prompt("Nuevo Correo", item.correo);
+    const nuevaFecha = prompt("Nueva Fecha", item.fecha);
+
+    if (!nuevoNombre || !nuevoCorreo || !nuevaFecha) return;
+    await updateDoc(doc(db, 'items', item.id), {
+      nombre: nuevoNombre,
+      correo: nuevoCorreo,
+      fecha: nuevaFecha,
+    });
+    fetchItems();
+  }
+
+  const fetchItems = async () => {
+    const snapshot = await getDocs(collection(db, 'items'))
+    setItems(snapshot.docs.map((doc) => {
+      const data = doc.data() as { nombre?: string; correo?: string; fecha?: string };
+      return {
+        id: doc.id,
+        nombre: data.nombre || '',
+        correo: data.correo || '',
+        fecha: data.fecha || '',
+      };
+    }));
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="font-sans grid grid-rows-[auto_auto_1fr] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+      <h1>NextJS Firebase</h1>
+
+      <div className="grid gap-4 w-full max-w-md">
+        <input
+          type="text"
+          className="border-2 p-2 rounded"
+          placeholder="Nombre"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <input
+          type="email"
+          className="border-2 p-2 rounded"
+          placeholder="Correo"
+          value={correo}
+          onChange={(e) => setCorreo(e.target.value)}
+        />
+        <input
+          type="date"
+          className="border-2 p-2 rounded"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+        />
+        <button className="border p-2 rounded bg-blue-600 text-white hover:bg-blue-700" onClick={handleAdd}>
+          Agregar
+        </button>
+      </div>
+
+      <ul className="w-full max-w-2xl space-y-3 mt-6">
+        {items.map((item) => (
+          <li key={item.id} className="border rounded p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <strong>{item.nombre}</strong> - {item.correo} - {item.fecha}
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="p-2 border bg-yellow-500 text-white rounded"
+                onClick={() => handleEdit(item)}
+              >
+                Edit
+              </button>
+              <button
+                className="p-2 border bg-red-500 text-white rounded"
+                onClick={() => handleDelete(item.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
+
